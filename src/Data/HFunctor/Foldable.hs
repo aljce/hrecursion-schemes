@@ -33,7 +33,7 @@ class HFunctor (Base t) => Recursive t where
     where c :: t ~> f
           c = f . hfmap (\t -> Pair t (c t)) . project
 
-newtype HFix (f :: (k -> Type) -> k -> Type) a = HFix { unHFix :: f (HFix f) a }
+newtype HFix (f :: (k -> Type) -> k -> Type) (a :: k) = HFix { unHFix :: f (HFix f) a }
 
 type instance Base (HFix f) = f
 
