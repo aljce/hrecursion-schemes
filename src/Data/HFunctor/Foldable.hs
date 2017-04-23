@@ -20,7 +20,7 @@ type f ~> g = forall a. f a -> g a
 class HFunctor t where
   hfmap :: (f ~> g) -> t f ~> t g
 
-type family Base (t :: Type -> Type) :: (Type -> Type) -> Type -> Type
+type family Base (t :: k -> Type) :: (k -> Type) -> k -> Type
 
 class HFunctor (Base t) => Recursive t where
   project :: t ~> Base t t
@@ -33,7 +33,7 @@ class HFunctor (Base t) => Recursive t where
     where c :: t ~> f
           c = f . hfmap (\t -> Pair t (c t)) . project
 
-newtype HFix (f :: (k -> Type) -> k -> Type) a = HFix { unHFix :: f (HFix f) a }
+newtype HFix (f :: (k -> Type) -> k -> Type) (a :: k) = HFix { unHFix :: f (HFix f) a }
 
 type instance Base (HFix f) = f
 
