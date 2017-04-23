@@ -1,27 +1,44 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE PolyKinds #-}
 module Data.HFunctor.Foldable where
 
 import Data.Kind (type Type)
+import Data.Functor.Product (Product(..))
 
 import Control.Applicative (liftA2)
 import Data.Functor.Identity (Identity(..))
-
-newtype HFix f a = HFix { unHFix :: f (HFix f) a }
+import Data.Functor.Const (Const(..))
 
 type f ~> g = forall a. f a -> g a
 
 class HFunctor t where
   hfmap :: (f ~> g) -> t f ~> t g
 
-cata :: forall t f. HFunctor t => (t f ~> f) -> HFix t ~> f
-cata f = c
-  where c :: HFix t ~> f
-        c = f . hfmap c . unHFix
+type family Base (t :: Type -> Type) :: (Type -> Type) -> Type -> Type
+
+class HFunctor (Base t) => Recursive t where
+  project :: t ~> Base t t
+  cata :: forall f. (Base t f ~> f) -> t ~> f
+  cata f = c
+    where c :: t ~> f
+          c = f . hfmap c . project
+  para :: forall f. (Base t (Product t f) ~> f) -> t ~> f
+  para f = c
+    where c :: t ~> f
+          c = f . hfmap (\t -> Pair t (c t)) . project
+
+newtype HFix (f :: (k -> Type) -> k -> Type) a = HFix { unHFix :: f (HFix f) a }
+
+type instance Base (HFix f) = f
+
+instance HFunctor f => Recursive (HFix f) where
+  project = unHFix
 
 data ExprF :: (Type -> Type) -> Type -> Type where
   EInt   :: Int -> ExprF f Int
@@ -67,3 +84,13 @@ eval = runIdentity . cata alg
         alg (EIf b e1 e2) = b >>= \case
           True  -> e1
           False -> e2
+
+pprint :: Expr a -> String
+pprint = getConst . cata alg
+  where alg :: ExprF (Const String) ~> Const String
+        alg = \case
+          EInt i  -> Const (show i)
+          EBool b -> Const (show b)
+          EAdd e1 e2 -> Const (getConst e1 ++ " + " ++ getConst e2)
+          EEqual e1 e2 -> Const (getConst e1 ++ " == " ++ getConst e2)
+          EIf b e1 e2 -> Const ("if " ++ getConst b ++ " then " ++ getConst e1 ++ " else " ++ getConst e2)
