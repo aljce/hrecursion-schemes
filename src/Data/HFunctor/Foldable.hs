@@ -6,13 +6,15 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Data.HFunctor.Foldable where
 
 import Data.Kind (type Type)
-import Data.Functor.Product (Product(..))
+import Data.Function (on)
 
 import Control.Applicative (liftA2)
 import Data.Functor.Identity (Identity(..))
+import Data.Functor.Product (Product(..))
 import Data.Functor.Const (Const(..))
 
 type f ~> g = forall a. f a -> g a
@@ -34,6 +36,15 @@ class HFunctor (Base t) => Recursive t where
           c = f . hfmap (\t -> Pair t (c t)) . project
 
 newtype HFix (f :: (k -> Type) -> k -> Type) (a :: k) = HFix { unHFix :: f (HFix f) a }
+
+instance Show (f (HFix f) a) => Show (HFix f a) where
+  showsPrec p (HFix f) = showsPrec p f
+
+instance Eq (f (HFix f) a) => Eq (HFix f a) where
+  (==) = (==) `on` unHFix
+
+instance Ord (f (HFix f) a) => Ord (HFix f a) where
+  compare = compare `on` unHFix
 
 type instance Base (HFix f) = f
 
